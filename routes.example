@@ -1,0 +1,5 @@
+# Example routing file for node-router
+/app1 goes to port 8081
+/app2 goes to http://localhost:8082
+/foo/bar/bif goes to http://google.com
+/binfiles goes to file:///bin

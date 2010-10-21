@@ -1,0 +1,4 @@
+#!/bin/bash
+sdoc -p
+cat caterwaul.js node-router.js > /tmp/node-router.js
+node /tmp/node-router.js "$@"
