@@ -31,13 +31,12 @@ the server. The HTTP server just forwards requests along, copying the headers, b
   unify that logic in the router itself.
 
     var routing_table = [];
-    let[parse_routing_table = fn_[require('fs').readFile(routing_file), fn[data][
-      routing_table = {},
+    let[parse_routing_table = fn_[require('fs').readFile(routing_file, 'ascii', fn[err, data][
+      routing_table = [],
+      console.log('reading #{routing_file}'),
       data.split(/\n+/).map(fn[s][s.replace(/#.*$|^\s+/g, '')]).filter(fn[s][s.length]).map(fn[s][s.split(/\s*goes to\s*/)]).
-                    forEach(fn[parts][routing_table.push({url: parts[0], route: /^port\s/.test(parts[1]) ? 'http://localhost:#{parts[1].replace(/^port\s+/, "")}/' : parts[1]})])]]] in
-
-    (parse_routing_table(),
-     require('fs').watchFile(routing_file, parse_routing_table)), where[routing_file = process.argv[2]];
+                    forEach(fn[parts][routing_table.push({url: parts[0], route: /^port\s/.test(parts[1]) ? 'http://localhost:#{parts[1].replace(/^port\s+/, "")}/' : parts[1]})])])]] in
+    (parse_routing_table(), require('fs').watchFile(routing_file, parse_routing_table)), where[routing_file = process.argv[2] || console.log('error: must specify a routing file')];
 
   URL delegation.
   Each URL scheme has its own handler, stored in this global table:
@@ -51,9 +50,9 @@ the server. The HTTP server just forwards requests along, copying the headers, b
 
     There's also a basic MIME table, nothing too fancy. It assigns MIME types to HTML, JavaScript, and CSS files. Everything else is sent down as text/html.
 
-      file: (fn[req, res, relative_url, route_url][require('fs').readFile('#{route_url.replace(/^file:\/\//, "")}/#{relative_url.replace(/\.\+/g, "")}',
-                                                   fn[err, data][err ? (res.writeHead(500), res.end(err)) : (res.writeHead(200, {'content-type': content_type_for(relative_url)}),
-                                                                                                             res.end(data))])],
+      file: (fn[req, res, relative_url, route_url][require('fs').readFile('#{route_url.replace(/^file:\/\//, "")}/#{relative_url.replace(/\.\+/g, "")}', 'ascii',
+                                                   fn[err, data][err ? (res.writeHead(500), res.end(err.toString()))
+                                                                     : (res.writeHead(200, {'content-type': content_type_for(relative_url)}), res.end(data))])],
              where[content_type_for = fn[filename][/\.js$/i.test(filename) ? 'application/javascript' : /\.css$/i.test(filename) ? 'test/css' : 'text/html']]),
 
     HTTP serving.
@@ -61,14 +60,14 @@ the server. The HTTP server just forwards requests along, copying the headers, b
     potential port specification), creating a new 'host' header, and pipelining each end. (So more than a one-liner, basically.)
 
       http: fn[req, res, relative_url, route_url][let[headers = caterwaul.util.merge({}, req.headers, {host: host})] in
-                                                  (let[req0 = require('http').createClient(port || 80, host).request(req.method, url, headers)] in
+                                                  (let[req0 = require('http').createClient(port, host).request(req.method, url, headers)] in
                                                    (req0.on('response', fn[res0][res0.setEncoding('binary'),
-                                                                                 res.writeHead(res0.responseCode, res0.headers),
+                                                                                 res.writeHead(res0.statusCode, res0.headers),
                                                                                  res0.on('data', fn[data][res.write(data, 'binary')]),
                                                                                  res0.on('end',  fn_[res.end()])]),
                                                     req.on('data', fn[data][req0.write(data, 'binary')]),
                                                     req.on('end',  fn_[req0.end()]))),
-                                                  where[host = parts[0], port = parts[1], url = parts[2]],
+                                                  where[host = parts[1], port = parts[2] || 80, url = parts[3] || '/'],
                                                   where[parts = /^http:\/\/([^:\/]+)(:?\d*)(\/.*)$/.exec('#{route_url}/#{relative_url}')]]};
 
   Top-level routing.
@@ -77,6 +76,6 @@ the server. The HTTP server just forwards requests along, copying the headers, b
     process.on('uncaughtException', fn[e][console.log(e)]);
     require('http').createServer(function (req, res) {for (var i = 0, l = routing_table.length, r; r = routing_table[i], i < l; ++i) if (req.url.substring(0, r.url.length) === r.url) break;
                                                       i < l ? let[handler = url_handlers[r.route.substring(0, 4)], relative_url = req.url.substring(r.url.length)] in
-                                                              (handler ? handler(req, res, relative_url, r.url) : error('Invalid protocol: #{r.route.substring(0, 4)}'))
+                                                              (handler ? handler(req, res, relative_url, r.route) : error('Invalid protocol: #{r.route.substring(0, 4)}'))
                                                             : error('Unrouted URL: #{req.url}'), where[error = fn[reason][res.writeHead(500), res.end(reason)]]}).listen(8080, '0.0.0.0');
   })(require);
