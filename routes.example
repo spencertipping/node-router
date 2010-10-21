@@ -2,5 +2,5 @@
 /app1 goes to port 8081
 /app2 goes to http://localhost:8082
 /foo/bar/bif goes to http://google.com
-/doc goes to http://spencertipping.com/node-router/sdoc.html
+/doc goes to http://spencertipping.com/node-router
 /binfiles goes to file:///bin
